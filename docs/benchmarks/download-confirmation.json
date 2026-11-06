@@ -1,0 +1,74 @@
+[
+  {
+    "threads": 4,
+    "buffer_size": 8192,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 7.991,
+    "MiB_per_second": 4.004,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 1
+  },
+  {
+    "threads": 4,
+    "buffer_size": 65536,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 10.901,
+    "MiB_per_second": 2.935,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 1
+  },
+  {
+    "threads": 4,
+    "buffer_size": 65536,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 6.803,
+    "MiB_per_second": 4.704,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 2
+  },
+  {
+    "threads": 4,
+    "buffer_size": 8192,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 6.11,
+    "MiB_per_second": 5.237,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 2
+  },
+  {
+    "threads": 4,
+    "buffer_size": 65536,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 8.942,
+    "MiB_per_second": 3.579,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 3
+  },
+  {
+    "threads": 4,
+    "buffer_size": 8192,
+    "sample_bytes": 33554432,
+    "downloaded_bytes": 33554432,
+    "seconds": 7.268,
+    "MiB_per_second": 4.403,
+    "retries": 0,
+    "errors": [],
+    "route": "proxy",
+    "round": 3
+  }
+]

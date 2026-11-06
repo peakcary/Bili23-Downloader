@@ -5956,4 +5956,23 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
             <translation>%s 声道</translation>
         </message>
 </context>
+<context>
+    <name>DownloadSummary</name>
+    <message>
+        <source>Simultaneous downloads</source>
+        <translation>同时下载数</translation>
+    </message>
+    <message>
+        <source>Tasks share bandwidth. Threads per task are configured in Settings.</source>
+        <translation>多个任务共享带宽；单任务线程数可在设置中调整。</translation>
+    </message>
+    <message>
+        <source>Lowering this limit lets running tasks finish; queued tasks wait.</source>
+        <translation>调低数量不会中断正在下载的任务，排队任务将等待空位。</translation>
+    </message>
+    <message>
+        <source>Downloading %s · Queued %s · Failed %s · Total speed %s/s</source>
+        <translation>正在下载 %s · 排队 %s · 失败 %s · 总速度 %s/s</translation>
+    </message>
+</context>
 </TS>

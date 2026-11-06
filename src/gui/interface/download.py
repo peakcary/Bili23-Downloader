@@ -4,6 +4,7 @@ from qfluentwidgets import SubtitleLabel, Pivot, PopUpAniStackedWidget
 
 from gui.component.download_list import TopStackedWidget, DownloadListView
 from gui.component.widget.pivot import PivotItem
+from gui.component.download_list.summary import DownloadSummary
 
 from util.download.task.query_worker import QueryWorker
 from util.download.task.info import TaskInfo
@@ -57,9 +58,16 @@ class DownloadInterface(QFrame):
         self.addSubInterface(self.downloading_list_view, "downloading", self.tr("Downloading"), 0)
         self.addSubInterface(self.completed_list_view, "completed", self.tr("Completed"), 1)
 
+        self.queue_summary = DownloadSummary(
+            self.downloading_list_view._source_model,
+            self.downloading_list_view._schedule_auto_manage_concurrent_downloads, self)
+        self.list_stacked_widget.currentChanged.connect(
+            lambda index: self.queue_summary.setVisible(index == 0))
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(25, 15, 25, 15)
         main_layout.addLayout(top_layout)
+        main_layout.addWidget(self.queue_summary)
         main_layout.addWidget(self.list_stacked_widget)
 
         self.pivot.setCurrentItem("downloading")

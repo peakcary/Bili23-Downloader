@@ -1495,7 +1495,7 @@ class Downloader(QObject):
         ssl_context = get_ssl_context()
 
         limits = httpx.Limits(max_keepalive_connections = config.get(config.download_thread), max_connections = config.get(config.download_thread))
-        transport = httpx.HTTPTransport(retries = 5, verify = ssl_context)
+        transport = httpx.HTTPTransport(retries = 5, verify = ssl_context, limits = limits)
         # 与解析请求共用同一套代理模式判定
         mounts = get_proxy_mounts()
 

@@ -100,6 +100,26 @@ class BangumiEpisodeParser(EpisodeParserBase):
         if section:
             self.info_data["sections"].extend(section)
 
+        # The same episode can be returned both as a main episode and in a section.
+        # Prefer the main section; titles are not identities (different cuts may share them).
+        seen = set()
+        sections = []
+        for entry in self.info_data["sections"]:
+            episodes = []
+            for episode in entry["episodes"]:
+                key = (("ep", str(episode["ep_id"])) if episode.get("ep_id") else
+                       ("media", episode.get("bvid"), str(episode.get("cid"))))
+                identifiable = bool(episode.get("ep_id") or (episode.get("bvid") and episode.get("cid")))
+                if identifiable and key in seen:
+                    continue
+                if identifiable:
+                    seen.add(key)
+                episodes.append(episode)
+            if episodes:
+                sections.append({**entry, "episodes": episodes})
+        self.info_data["sections"] = sections
+        self.info_data["episodes"] = sections[0]["episodes"] if sections and sections[0]["title"] == "正片" else []
+
         # 未登录时，预告片会与正片混合，导致剧集序号错误；登录后，预告片会被单独分到一个章节中，不会影响正片的剧集序号
         # 因此，此处过滤未登录时正片中混杂的预告片，用于准确获取剧集序号
         episode_number = 0

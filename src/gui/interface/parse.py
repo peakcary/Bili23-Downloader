@@ -63,6 +63,7 @@ class ParseInterface(QFrame):
 
         self.main_window = parent
 
+        self._parse_in_progress = False
         self.category_name = ""
         self.duplicate_download_queue = deque()
         self.processing_duplicate_download = False
@@ -228,7 +229,7 @@ class ParseInterface(QFrame):
     def on_parse(self, page: int = 1):
         # 已在等待密钥：忽略这次触发。等待期间按钮是 indeterminate 状态，
         # 但回车、粘贴、翻页仍然会打进来，放进来的话会排成第二次解析
-        if self._pending_parse_worker is not None:
+        if self._pending_parse_worker is not None or self._parse_in_progress:
             return
 
         worker = ParseWorker(self.url_box.text(), page)
@@ -249,6 +250,10 @@ class ParseInterface(QFrame):
         self.start_parse(worker)
 
     def start_parse(self, worker: ParseWorker):
+        if self._parse_in_progress:
+            return
+        self._parse_in_progress = True
+        worker.finished.connect(self.on_parse_finished)
         self.parse_btn.setIndeterminateState(True)
 
         worker.success.connect(self.on_parse_success)
@@ -256,7 +261,12 @@ class ParseInterface(QFrame):
 
         logger.info("开始解析，链接: %s, 页码: %d", worker.url, worker.pn)
 
-        AsyncTask.run(worker)
+        try:
+            AsyncTask.run(worker)
+        except Exception:
+            self._parse_in_progress = False
+            self.parse_btn.setIndeterminateState(False)
+            raise
 
     def wait_for_wbi_keys(self, worker: ParseWorker):
         """
@@ -333,6 +343,9 @@ class ParseInterface(QFrame):
                 logger.debug("等待密钥期间补取未成功", exc_info = True)
 
         GlobalThreadPoolTask.run_func(fetch)
+
+    def on_parse_finished(self):
+        self._parse_in_progress = False
 
     def on_parse_success(self, category_name: str, extra_data: dict):
         self.parse_list._model._set_category_name(category_name)
