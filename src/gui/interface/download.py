@@ -95,6 +95,27 @@ class DownloadInterface(QFrame):
         self.top_stacked_widget.search_downloading_list_box.textChanged.connect(self.downloading_list_view.setFilterText)
         self.top_stacked_widget.search_completed_list_box.textChanged.connect(self.completed_list_view.setFilterText)
 
+        for view in (self.downloading_list_view, self.completed_list_view):
+            for signal in (view._model.rowsInserted, view._model.rowsRemoved,
+                           view._model.modelReset, view._model.layoutChanged):
+                signal.connect(self.update_batch_scope)
+        self.update_batch_scope()
+
+    def update_batch_scope(self, *args):
+        top = self.top_stacked_widget
+        count = self.downloading_list_view._model.rowCount()
+        for button, text in ((top.start_all_btn, self.tr("Start list ({count})")),
+                             (top.pause_all_btn, self.tr("Pause list ({count})")),
+                             (top.delete_all_btn, self.tr("Delete list ({count})"))):
+            button.setText(text.format(count=count))
+            button.setEnabled(count > 0)
+            button.setToolTip(self.tr("Applies only to tasks in the current list. Tasks that do not support this action are skipped."))
+        count = self.completed_list_view._model.rowCount()
+        top.clear_all_btn.setText(self.tr("Clear records ({count})").format(count=count))
+        top.clear_all_btn.setEnabled(count > 0)
+        top.clear_all_btn.setToolTip(self.tr("Removes records in the current list; downloaded files are kept."))
+
+
     def on_summary_filter(self, statuses):
         self.downloading_list_view.setStatusFilter(statuses)
         self.top_stacked_widget.filter_downloading_list_btn.setChecked(

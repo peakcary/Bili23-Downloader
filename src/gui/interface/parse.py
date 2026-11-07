@@ -411,6 +411,7 @@ class ParseInterface(QFrame):
         if config.get(config.show_download_options_dialog):
             dialog = self.show_download_options_dialog()
 
+            dialog.okBtn.setText(self.tr("Download {count} items").format(count=self.parse_list.get_checked_items_count()))
             if not dialog.exec():
                 return
 
@@ -460,7 +461,7 @@ class ParseInterface(QFrame):
     def on_batch_select(self):
         from ..dialog.misc.batch_select import BatchSelectDialog
 
-        dialog = BatchSelectDialog(self.main_window)
+        dialog = BatchSelectDialog(self.main_window, [item.number for item in self.parse_list.get_all_items()])
 
         if dialog.exec():
             self.parse_list.batch_select(dialog.number_list)
@@ -482,6 +483,7 @@ class ParseInterface(QFrame):
             )
 
         self.item_count_label.setText(text_label)
+        self.download_btn.setText(self.tr("Download {count} items").format(count=checked_count))
         self.download_btn.setEnabled(checked_count > 0)
 
     def on_copy_url(self):

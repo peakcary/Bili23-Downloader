@@ -21,7 +21,8 @@ class DownloadOptionsDialog(TopNavigationDialogBase):
         self.setWindowTitle(self.tr("Download Options"))
         self.setWindowIcon(QIcon(":/bili23/icon/app.svg"))
 
-        self.setFixedSize(750, 500)
+        self.setMinimumSize(750, 500)
+        self.resize(850, 560)
 
         self.init_UI()
 

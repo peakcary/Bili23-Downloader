@@ -411,6 +411,18 @@ You can also press shift + click to select a range of items.</source>
         <source>Invalid line number</source>
         <translation>行號格式錯誤</translation>
     </message>
+    <message>
+        <source>Uses list row numbers, not episode numbers. Existing selections are kept.</source>
+        <translation>按清單行號選取，不是影片集數；保留已有勾選。</translation>
+    </message>
+    <message>
+        <source>Some row numbers are not in the current list</source>
+        <translation>部分行號不在目前清單中</translation>
+    </message>
+    <message>
+        <source>Select {count} rows (duplicates excluded)</source>
+        <translation>選取 {count} 行（已去重）</translation>
+    </message>
 </context>
 <context>
     <name>BorderGroup</name>
@@ -1252,6 +1264,30 @@ Please note that download history is the sole basis for recognizing downloaded v
         <location filename="../../gui/interface/download.py" line="145"/>
         <source>Failed to query download tasks</source>
         <translation>查詢下載任務失敗</translation>
+    </message>
+    <message>
+        <source>Start list ({count})</source>
+        <translation>開始清單（{count}）</translation>
+    </message>
+    <message>
+        <source>Pause list ({count})</source>
+        <translation>暫停清單（{count}）</translation>
+    </message>
+    <message>
+        <source>Delete list ({count})</source>
+        <translation>刪除清單（{count}）</translation>
+    </message>
+    <message>
+        <source>Clear records ({count})</source>
+        <translation>清除記錄（{count}）</translation>
+    </message>
+    <message>
+        <source>Applies only to tasks in the current list. Tasks that do not support this action are skipped.</source>
+        <translation>僅操作目前清單中的任務；不支援此操作的任務會略過。</translation>
+    </message>
+    <message>
+        <source>Removes records in the current list; downloaded files are kept.</source>
+        <translation>清除目前清單中的記錄，保留已下載的檔案。</translation>
     </message>
 </context>
 <context>
@@ -3835,6 +3871,10 @@ This software contains no advertisements, trackers, or analytics SDKs of any kin
         <location filename="../../gui/interface/parse.py" line="857"/>
         <source>Skipped duplicate download: {task_title}</source>
         <translation>已跳過重複下載的任務：{task_title}</translation>
+    </message>
+    <message>
+        <source>Download {count} items</source>
+        <translation>下載 {count} 項</translation>
     </message>
 </context>
 <context>
