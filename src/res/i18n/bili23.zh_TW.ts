@@ -1289,6 +1289,14 @@ Please note that download history is the sole basis for recognizing downloaded v
         <source>Removes records in the current list; downloaded files are kept.</source>
         <translation>清除目前清單中的記錄，保留已下載的檔案。</translation>
     </message>
+    <message>
+        <source>Downloads</source>
+        <translation>下載任務</translation>
+    </message>
+    <message>
+        <source>Manage your queue and downloaded files.</source>
+        <translation>查看下載進度，管理佇列與已完成的檔案。</translation>
+    </message>
 </context>
 <context>
     <name>DownloadListView</name>
@@ -3876,6 +3884,18 @@ This software contains no advertisements, trackers, or analytics SDKs of any kin
         <source>Download {count} items</source>
         <translation>下載 {count} 項</translation>
     </message>
+    <message>
+        <source>Paste a Bilibili link or video ID</source>
+        <translation>貼上嗶哩嗶哩連結或影片編號</translation>
+    </message>
+    <message>
+        <source>New download</source>
+        <translation>新增下載</translation>
+    </message>
+    <message>
+        <source>Paste a link, select items, then choose what to download.</source>
+        <translation>貼上連結，選擇內容，再確認下載選項。</translation>
+    </message>
 </context>
 <context>
     <name>ParseListSettingsDialog</name>
@@ -4898,6 +4918,14 @@ ISP：{isp}</translation>
         <source>Configuration takes effect after restart</source>
         <translation>設定重新啟動後生效</translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>設定</translation>
+    </message>
+    <message>
+        <source>Customize downloads, files and application behavior.</source>
+        <translation>管理下載偏好、檔案儲存和應用程式行為。</translation>
+    </message>
 </context>
 <context>
     <name>SortFlyoutWidget</name>
@@ -5347,6 +5375,10 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
         <location filename="../../gui/component/download_list/top_widget.py" line="505"/>
         <source>Failed</source>
         <translation>失敗</translation>
+    </message>
+    <message>
+        <source>More actions</source>
+        <translation>更多操作</translation>
     </message>
 </context>
 <context>

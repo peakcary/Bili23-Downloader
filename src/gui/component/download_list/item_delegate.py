@@ -91,8 +91,7 @@ class DownloadItemDelegate(CoverQueryDelegateBase):
         self._drawCoverBadge(painter, coverRect, self.uiData.getMediaTypeText(task_info), Qt.Corner.TopLeftCorner)
         self._drawCoverBadge(painter, coverRect, self.uiData.getDurationText(task_info), Qt.Corner.BottomRightCorner)
 
-        # 右侧状态区：中间一行是进度条与百分比，底部一行是大小、速度、剩余时间等状态信息。
-        # 会随下载跳动的数字全部收在这一块里，左侧的标题与标签在下载过程中保持静止
+        # 标题、媒体规格、进度和状态按四行排列，共享同一左边界。
         statusAreaRect = self.uiRect.getStatusAreaRect(option)
 
         if not self.isTaskCompleted(task_info):
@@ -110,14 +109,14 @@ class DownloadItemDelegate(CoverQueryDelegateBase):
         self._drawText(painter, titleRect, task_info.Basic.show_title)
 
         tagRect = self.uiRect.getTagRect(titleRect, statusAreaRect, statusRect)
-        self._drawTags(painter, tagRect, self.uiData.getTagList(task_info) + self.uiData.getAdditionalTagList(task_info))
+        self._drawSecondaryText(painter, tagRect, " · ".join(self.uiData.getTagList(task_info) + self.uiData.getAdditionalTagList(task_info)))
 
-        # 右侧控制和删除按钮
+        # 常用操作与更多菜单保持中性，避免每行都出现强调色按钮。
         actionButtonRect = self.uiRect.getActionButtonRect(option)
-        self._drawPrimaryButton(painter, actionButtonRect, self.uiData.getButtonIcon(task_info), self.ActionButtonHoveredRow == index.row())
+        self._drawButton(painter, actionButtonRect, self.uiData.getButtonIcon(task_info), self.ActionButtonHoveredRow == index.row())
 
         deleteButtonRect = self.uiRect.getDeleteButtonRect(option)
-        self._drawButton(painter, deleteButtonRect, FluentIcon.DELETE, self.DeleteButtonHoveredRow == index.row())
+        self._drawButton(painter, deleteButtonRect, FluentIcon.MORE, self.DeleteButtonHoveredRow == index.row())
 
     def _drawSecondaryText(self, painter: QPainter, rect: QRect, text: str, error = False, alignment = Qt.AlignmentFlag.AlignLeft):
         if not text:
@@ -176,7 +175,7 @@ class DownloadItemDelegate(CoverQueryDelegateBase):
             left += width + spacing
 
     def _buttonHoverEvent(self, option: QStyleOptionViewItem, index: QModelIndex, event: QMouseEvent):
-        pos = event.pos()
+        pos = event.position().toPoint()
 
         actionButtonRect = self.uiRect.getActionButtonRect(option)
         deleteButtonRect = self.uiRect.getDeleteButtonRect(option)
@@ -192,11 +191,11 @@ class DownloadItemDelegate(CoverQueryDelegateBase):
             self.DeleteButtonHoveredRow = -1
 
     def _pressEvent(self, option: QStyleOptionViewItem, index: QModelIndex, event: QMouseEvent):
-        pos = event.pos()
+        pos = event.position().toPoint()
 
         if event.button() == Qt.MouseButton.RightButton:
             # 右键点击，弹出上下文菜单
-            self.contextMenuRequested.emit(index, event.globalPos())
+            self.contextMenuRequested.emit(index, event.globalPosition().toPoint())
 
             return True
 
@@ -218,7 +217,7 @@ class DownloadItemDelegate(CoverQueryDelegateBase):
             return True
 
         if deleteButtonRect.contains(pos):
-            index.model().cancelDownload(index.data(Qt.ItemDataRole.UserRole))
+            self.contextMenuRequested.emit(index, event.globalPosition().toPoint())
 
             return True
 
@@ -281,14 +280,12 @@ class UIRect:
         self.badgePadding = 5
         self.badgeInset = 4
 
-        # 右侧状态区的宽度要放得下「1023.9 MB / 1023.9 MB · 10.0 MB/s · 剩余 01:03:21」
-        self.statusAreaWidth = 280
         self.percentWidth = 40
 
     def getCoverRect(self, option: QStyleOptionViewItem):
         top = self.margin + option.rect.top()
 
-        return QRect(self.margin, top, 144, 80)
+        return QRect(self.margin, top + 8, 112, 64)
 
     def getCoverBadgeRect(self, coverRect: QRect, textWidth: int, corner: Qt.Corner):
         width = textWidth + self.badgePadding * 2
@@ -304,7 +301,7 @@ class UIRect:
 
     def getTitleRect(self, coverRect: QRect, option: QStyleOptionViewItem):
         left = coverRect.right() + self.spacer
-        top = coverRect.top() + 5
+        top = option.rect.top() + 10
 
         # 标题所在的第一行右侧没有其他元素，一直延伸到按钮前
         width = self.getActionButtonRect(option).left() - self.spacer - left
@@ -312,12 +309,12 @@ class UIRect:
         return QRect(left, top, width, 22)
 
     def getStatusAreaRect(self, option: QStyleOptionViewItem):
-        left = self.getActionButtonRect(option).left() - self.spacer - self.statusAreaWidth
-
-        return QRect(left, option.rect.top(), self.statusAreaWidth, option.rect.height())
+        left = self.getCoverRect(option).right() + self.spacer
+        width = self.getActionButtonRect(option).left() - self.spacer - left
+        return QRect(left, option.rect.top(), max(0, width), option.rect.height())
 
     def getProgressBarRect(self, statusAreaRect: QRect, option: QStyleOptionViewItem):
-        top = option.rect.top() + (option.rect.height() - 16) // 2
+        top = option.rect.top() + 52
         width = statusAreaRect.width() - self.percentWidth - self.margin
 
         return QRect(statusAreaRect.left(), top, width, 16)
@@ -329,16 +326,14 @@ class UIRect:
         return QRect(left, top, self.percentWidth, self.lineHeight)
 
     def getStatusRect(self, statusAreaRect: QRect, option: QStyleOptionViewItem):
-        # 与封面底边留出和标题同样的 5px 内缩，使上下两行相对封面对称
-        top = option.rect.top() + self.margin + 80 - 5 - self.lineHeight
+        # 状态行独立于媒体规格，窄窗口不再互相覆盖。
+        top = option.rect.top() + 74
 
         return QRect(statusAreaRect.left(), top, statusAreaRect.width(), self.lineHeight)
 
     def getTagRect(self, titleRect: QRect, statusAreaRect: QRect, statusRect: QRect):
         left = titleRect.left()
-        width = statusAreaRect.left() - self.spacer - left
-
-        return QRect(left, statusRect.top(), width, self.lineHeight)
+        return QRect(left, titleRect.bottom() + 4, titleRect.width(), self.lineHeight)
 
     def getActionButtonRect(self, option: QStyleOptionViewItem):
         left = option.rect.width() - self.buttonSize * 2 - self.spacer * 2

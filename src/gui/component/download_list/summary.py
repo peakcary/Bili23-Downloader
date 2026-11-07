@@ -1,7 +1,7 @@
 """Queue overview and immediate access to task concurrency."""
 from PySide6.QtCore import QTimer, Slot, Qt, Signal
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSizePolicy
-from qfluentwidgets import BodyLabel, SpinBox, TogglePushButton, FlowLayout
+from qfluentwidgets import BodyLabel, SpinBox, TransparentTogglePushButton, FlowLayout
 
 from util.common.config import config
 from util.common.enum import DownloadStatus
@@ -42,7 +42,7 @@ class DownloadSummary(QWidget):
         flow.setHorizontalSpacing(8)
         flow.setVerticalSpacing(6)
         for label, states in self.groups:
-            button = TogglePushButton(label, chips)
+            button = TransparentTogglePushButton(label, chips)
             button.clicked.connect(lambda checked=False, values=states: self.chooseFilter(values))
             flow.addWidget(button)
             self.buttons.append(button)

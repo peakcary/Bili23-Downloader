@@ -7,6 +7,7 @@ from qfluentwidgets import (
 )
 
 from gui.component.widget.scroll import ScrollArea
+from gui.component.widget.page_header import PageHeader
 from gui.component.setting import (
     PrioritySettingCard, DanmakuSettingCard, SubtitleSettingCard, CoverSettingCard, ChapterSettingCard, MetadataSettingCard, CDNSettingCard, ProxySettingCard,
     FFmpegSettingCard, NumberSettingCard, DownloadFormatCard, DownloadPathSettingCard, ParsingSettingCard, WindowBehaviorSettingCard,
@@ -135,7 +136,8 @@ class SettingInterface(ScrollArea):
         self.update_group.addSettingCard(self.check_update_card)
 
         self.expand_layout.setSpacing(28)
-        self.expand_layout.setContentsMargins(30, 10, 30, 0)
+        self.expand_layout.setContentsMargins(24, 20, 24, 20)
+        self.expand_layout.addWidget(PageHeader(self.tr("Settings"), self.tr("Customize downloads, files and application behavior."), self))
         self.expand_layout.addWidget(self.interface_group)
         self.expand_layout.addWidget(self.behavior_group)
         self.expand_layout.addWidget(self.download_group)

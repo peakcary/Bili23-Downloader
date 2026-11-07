@@ -1,11 +1,11 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout
-from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QWidget
+from qfluentwidgets import FlowLayout, CaptionLabel
 
-from gui.component.widget.label import TagLabel, TipCaptionLabel
+from gui.component.widget.label import TipCaptionLabel
 
 class DownloadPreviewBar(QWidget):
     """
-    DownloadPreviewBar 以彩色标签的形式，实时预览当前将要下载的内容。
+    使用中性文字和可换行布局预览内容，强调色留给提交操作。
     """
 
     def __init__(self, parent = None):
@@ -16,32 +16,33 @@ class DownloadPreviewBar(QWidget):
     def init_UI(self):
         self.tip_label = TipCaptionLabel(self.tr("Will download:"), self)
 
-        # 每一项对应一种可下载的内容，颜色用于区分不同类型
+        # 文件类型用文字区分，避免无状态语义的多色标签。
         tag_info = [
-            ("video", self.tr("Video"), "#0078D4"),
-            ("audio", self.tr("Audio"), "#13A10E"),
-            ("danmaku", self.tr("Danmaku"), "#8764B8"),
-            ("subtitle", self.tr("Subtitles"), "#DA6A1E"),
-            ("cover", self.tr("Cover"), "#00B7C3"),
-            ("chapter", self.tr("Chapters"), "#EF6950"),
-            ("metadata", self.tr("Metadata"), "#C239B3")
+            ("video", self.tr("Video")),
+            ("audio", self.tr("Audio")),
+            ("danmaku", self.tr("Danmaku")),
+            ("subtitle", self.tr("Subtitles")),
+            ("cover", self.tr("Cover")),
+            ("chapter", self.tr("Chapters")),
+            ("metadata", self.tr("Metadata"))
         ]
 
-        self.tag_map = {key: TagLabel(text, QColor(color), self) for key, text, color in tag_info}
+        self.tag_map = {key: CaptionLabel(text, self) for key, text in tag_info}
 
-        # 未选择任何内容时的占位标签，使用灰色以示区别
-        self.empty_tag = TagLabel(self.tr("Nothing selected"), QColor("#8A8A8A"), self)
+        # 未选择任何内容时显示占位提示。
+        self.empty_tag = CaptionLabel(self.tr("Nothing selected"), self)
 
-        main_layout = QHBoxLayout(self)
+        main_layout = FlowLayout(self, needAni=False)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(4)
+        main_layout.setHorizontalSpacing(12)
+        main_layout.setVerticalSpacing(4)
         main_layout.addWidget(self.tip_label)
 
         for tag in self.tag_map.values():
             main_layout.addWidget(tag)
 
         main_layout.addWidget(self.empty_tag)
-        main_layout.addStretch()
+
 
     def update_preview(self, state: dict):
         for key, tag in self.tag_map.items():

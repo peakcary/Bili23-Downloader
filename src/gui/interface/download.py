@@ -5,6 +5,7 @@ from qfluentwidgets import SubtitleLabel, Pivot, PopUpAniStackedWidget
 from gui.component.download_list import TopStackedWidget, DownloadListView
 from gui.component.widget.pivot import PivotItem
 from gui.component.download_list.summary import DownloadSummary
+from gui.component.widget.page_header import PageHeader
 
 from util.download.task.query_worker import QueryWorker
 from util.download.task.info import TaskInfo
@@ -26,6 +27,7 @@ class DownloadInterface(QFrame):
 
     def init_UI(self):
         self.pivot = Pivot(self)
+        self.pivot.setFixedSize(250, 36)
 
         self.list_stacked_widget = PopUpAniStackedWidget(self)
         self.list_stacked_widget.setContentsMargins(0, 10, 0, 10)
@@ -53,7 +55,7 @@ class DownloadInterface(QFrame):
         top_layout.addWidget(self.pivot)
         # 顶栏占满 Pivot 右侧的全部宽度（各页内部自带左侧弹簧，按钮仍靠右），
         # 这样它才知道还剩多少空间，决定搜索框是常驻显示还是收成按钮
-        top_layout.addWidget(self.top_stacked_widget, 1)
+        top_layout.addStretch()
 
         self.addSubInterface(self.downloading_list_view, "downloading", self.tr("Downloading"), 0)
         self.addSubInterface(self.completed_list_view, "completed", self.tr("Completed"), 1)
@@ -66,10 +68,13 @@ class DownloadInterface(QFrame):
             lambda index: self.queue_summary.setVisible(index == 0))
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(25, 15, 25, 15)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+        main_layout.setSpacing(12)
+        main_layout.addWidget(PageHeader(self.tr("Downloads"), self.tr("Manage your queue and downloaded files."), self))
         main_layout.addLayout(top_layout)
+        main_layout.addWidget(self.top_stacked_widget)
         main_layout.addWidget(self.queue_summary)
-        main_layout.addWidget(self.list_stacked_widget)
+        main_layout.addWidget(self.list_stacked_widget, 1)
 
         self.pivot.setCurrentItem("downloading")
 
@@ -114,6 +119,10 @@ class DownloadInterface(QFrame):
         top.clear_all_btn.setText(self.tr("Clear records ({count})").format(count=count))
         top.clear_all_btn.setEnabled(count > 0)
         top.clear_all_btn.setToolTip(self.tr("Removes records in the current list; downloaded files are kept."))
+        top.delete_action.setText(top.delete_all_btn.text())
+        top.delete_action.setEnabled(top.delete_all_btn.isEnabled())
+        top.clear_action.setText(top.clear_all_btn.text())
+        top.clear_action.setEnabled(top.clear_all_btn.isEnabled())
 
 
     def on_summary_filter(self, statuses):

@@ -3,14 +3,12 @@ from PySide6.QtCore import Qt, QEvent, Signal
 
 from qfluentwidgets import (
     PrimaryPushButton, PushButton, FluentIcon, FlyoutViewBase, BodyLabel, ComboBox, FlyoutAnimationType,
-    CheckBox, SearchLineEdit
+    CheckBox, SearchLineEdit, TransparentPushButton, RoundMenu, Action
 )
 
-from gui.component.widget.button import ToolButton, ToggleToolButton
+from gui.component.widget.button import ToolButton, ToggleToolButton, TransparentToolButton
 from gui.component.widget.flyout_popup import Flyout
-from gui.component.widget.separator import Separator
 
-from util.common.enum import DownloadStatus
 from util.common.icon import ExtendedFluentIcon
 from util.common.translator import Translator
 from util.common.io.directory import Directory
@@ -345,7 +343,7 @@ class TopStackedWidget(QStackedWidget):
 
         self.download_interface = parent
 
-        self.setFixedHeight(32)
+        self.setFixedHeight(36)
 
         self.init_UI()
 
@@ -355,32 +353,39 @@ class TopStackedWidget(QStackedWidget):
 
         self.search_downloading_list_box = self._create_search_box()
 
-        self.filter_downloading_list_btn = ToolButton(FluentIcon.FILTER, self)
+        self.filter_downloading_list_btn = ToggleToolButton(FluentIcon.FILTER, self)
         self.filter_downloading_list_btn.setToolTip(self.tr("Filter"))
 
-        self.sort_downloading_list_btn = ToolButton(ExtendedFluentIcon.SORT, self)
+        self.sort_downloading_list_btn = TransparentToolButton(ExtendedFluentIcon.SORT, self)
         self.sort_downloading_list_btn.setToolTip(self.tr("Sort"))
 
-        self.open_folder_1_btn = ToolButton(FluentIcon.FOLDER, self)
+        self.open_folder_1_btn = TransparentToolButton(FluentIcon.FOLDER, self)
         self.open_folder_1_btn.setToolTip(self.tr("Open Download Directory"))
 
-        separator_1 = Separator(self, alpha = 50)
+        self.more_downloading_btn = ToolButton(FluentIcon.MORE, self)
+        self.more_downloading_btn.setToolTip(self.tr("More actions"))
+        self.downloading_menu = RoundMenu(parent=self)
+        self.delete_action = Action(FluentIcon.DELETE, self.tr("Delete All"), self)
+        self.downloading_menu.addAction(self.delete_action)
+        self.more_downloading_btn.clicked.connect(lambda: self.downloading_menu.exec(self.more_downloading_btn.mapToGlobal(self.more_downloading_btn.rect().bottomLeft())))
 
         self.start_all_btn = PrimaryPushButton(FluentIcon.PLAY, self.tr("Start All"), self)
-        self.pause_all_btn = PushButton(FluentIcon.PAUSE, self.tr("Pause All"), self)
+        self.pause_all_btn = TransparentPushButton(FluentIcon.PAUSE, self.tr("Pause All"), self)
         self.delete_all_btn = PushButton(FluentIcon.DELETE, self.tr("Delete All"), self)
 
         downloading_layout = QHBoxLayout(downloading_widget)
         downloading_layout.setContentsMargins(0, 0, 0, 0)
-        downloading_layout.addStretch()
+        downloading_layout.setSpacing(8)
         downloading_layout.addWidget(self.search_downloading_list_box)
         downloading_layout.addWidget(self.filter_downloading_list_btn)
         downloading_layout.addWidget(self.sort_downloading_list_btn)
         downloading_layout.addWidget(self.open_folder_1_btn)
-        downloading_layout.addWidget(separator_1)
+        downloading_layout.addStretch()
         downloading_layout.addWidget(self.start_all_btn)
         downloading_layout.addWidget(self.pause_all_btn)
-        downloading_layout.addWidget(self.delete_all_btn)
+        downloading_layout.addWidget(self.more_downloading_btn)
+        self.delete_all_btn.hide()
+        self.delete_action.triggered.connect(self.delete_all_btn.click)
 
         completed_widget = QWidget()
         completed_widget.setContentsMargins(0, 0, 0, 0)
@@ -390,26 +395,33 @@ class TopStackedWidget(QStackedWidget):
         self.filter_completed_list_btn = ToggleToolButton(FluentIcon.FILTER, self)
         self.filter_completed_list_btn.setToolTip(self.tr("Filter"))
 
-        self.sort_completed_list_btn = ToolButton(ExtendedFluentIcon.SORT, self)
+        self.sort_completed_list_btn = TransparentToolButton(ExtendedFluentIcon.SORT, self)
         self.sort_completed_list_btn.setToolTip(self.tr("Sort"))
 
-        self.open_folder_2_btn = ToolButton(FluentIcon.FOLDER, self)
+        self.open_folder_2_btn = TransparentToolButton(FluentIcon.FOLDER, self)
         self.open_folder_2_btn.setToolTip(self.tr("Open Download Directory"))
 
-        separator_2 = Separator(self, alpha = 50)
+        self.more_completed_btn = ToolButton(FluentIcon.MORE, self)
+        self.more_completed_btn.setToolTip(self.tr("More actions"))
+        self.completed_menu = RoundMenu(parent=self)
+        self.clear_action = Action(ExtendedFluentIcon.CLEAR, self.tr("Clear All"), self)
+        self.completed_menu.addAction(self.clear_action)
+        self.more_completed_btn.clicked.connect(lambda: self.completed_menu.exec(self.more_completed_btn.mapToGlobal(self.more_completed_btn.rect().bottomLeft())))
 
         self.clear_all_btn = PushButton(ExtendedFluentIcon.CLEAR, self.tr("Clear All"))
         self.clear_all_btn.setMinimumWidth(110)
 
         completed_layout = QHBoxLayout(completed_widget)
         completed_layout.setContentsMargins(0, 0, 0, 0)
-        completed_layout.addStretch()
+        completed_layout.setSpacing(8)
         completed_layout.addWidget(self.search_completed_list_box)
         completed_layout.addWidget(self.filter_completed_list_btn)
         completed_layout.addWidget(self.sort_completed_list_btn)
         completed_layout.addWidget(self.open_folder_2_btn)
-        completed_layout.addWidget(separator_2)
-        completed_layout.addWidget(self.clear_all_btn)
+        completed_layout.addStretch()
+        completed_layout.addWidget(self.more_completed_btn)
+        self.clear_all_btn.hide()
+        self.clear_action.triggered.connect(self.clear_all_btn.click)
 
         self.addWidget(downloading_widget)
         self.addWidget(completed_widget)
@@ -497,13 +509,7 @@ class TopStackedWidget(QStackedWidget):
     def on_show_downloading_list_filter_flyout(self):
         # 按用户能分辨的阶段归组，而不是逐个列出 DownloadStatus：解析中一闪而过，
         # 合并 / 转换 / 附加处理在用户看来都是「下载完在收尾」
-        status_group_dict = {
-            self.tr("Downloading"): frozenset({DownloadStatus.DOWNLOADING, DownloadStatus.PARSING}),
-            self.tr("Waiting"): frozenset({DownloadStatus.QUEUED, DownloadStatus.FFMPEG_QUEUED}),
-            self.tr("Paused"): frozenset({DownloadStatus.PAUSED}),
-            self.tr("Processing"): frozenset({DownloadStatus.MERGING, DownloadStatus.CONVERTING, DownloadStatus.ADDITIONAL_PROCESSING}),
-            self.tr("Failed"): frozenset({DownloadStatus.FAILED, DownloadStatus.FFMPEG_FAILED, DownloadStatus.INVALID})
-        }
+        status_group_dict = dict(self.download_interface.queue_summary.groups[1:])
 
         self._show_filter_flyout(
             self.download_interface.downloading_list_view,

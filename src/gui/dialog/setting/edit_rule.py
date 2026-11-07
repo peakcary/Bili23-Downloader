@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QApplication
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QApplication, QLayout
 from PySide6.QtCore import Qt, QTimer, Signal
 
 from qfluentwidgets import (
@@ -10,6 +10,7 @@ from gui.component.widget.combobox import DictComboBox
 from gui.component.widget.tree_widget import ColumnTreeWidget
 from gui.component.dialog import Base
 from gui.component.rule_builder import RuleBuilderWidget
+from gui.component.widget.scroll import ScrollArea
 
 from util.common.data import convention_type_map, reversed_convention_type_map, VariableListFactory
 from util.common.data.naming_convention import SampleShape, SUPPORTED_SHAPES, MIXED_ENTRY_TYPES
@@ -288,7 +289,8 @@ class EditRuleDialog(Base, QWidget):
         self.variable_list.header().setStretchLastSection(False)
         # 不给硬性最小高度，让它自己的 minimumSizeHint 说了算：整栏的最小高度之和
         # 一旦超过窗口能给的，Qt 会无视最小值继续压，多出来的那几像素就会变成重叠
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout()
+        main_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addLayout(header_layout)
         main_layout.addSpacing(8)
@@ -301,6 +303,15 @@ class EditRuleDialog(Base, QWidget):
         main_layout.addSpacing(4)
         main_layout.addLayout(link_layout)
         main_layout.addWidget(self.variable_list, 2)
+
+        # 小窗口中滚动整个编辑区，避免把目录、文件名和预览强行压在一起。
+        self.editor_scroll = ScrollArea(self)
+        self.editor_scroll.setScrollLayout(main_layout)
+        self.editor_scroll.enableTransparentBackground()
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(self.editor_scroll)
+
 
     def init_data(self):
         self.variable_list_factory = VariableListFactory()

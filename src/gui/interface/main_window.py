@@ -8,7 +8,6 @@ from qfluentwidgets import (
 
 from util.common.enum import ToastNotificationCategory, WhenClose
 from util.common.signal_bus import signal_bus
-from util.common.icon import ExtendedFluentIcon
 from util.common.config import config
 from util.common.runtime import runtime
 from util.misc.macos import activate_app
@@ -82,7 +81,7 @@ class MainWindow(MSFluentWindow):
 
         self.favorite_btn = self.navigationInterface.addItem(
             "favorite",
-            ExtendedFluentIcon.FAVORITE,
+            FluentIcon.HEART,
             self.tr("Favorites"),
             onClick = self.show_favorites_flyout_menu,
             selectable = True,
@@ -95,7 +94,7 @@ class MainWindow(MSFluentWindow):
             self.tr("About"),
             onClick = self.on_about_click,
             selectable = False,
-            position = NavigationItemPosition.TOP
+            position = NavigationItemPosition.BOTTOM
         )
 
         self.avatar_widget = NavigationLargeAvatarWidget("", QPixmap(":/bili23/image/noface.jpg"), self)

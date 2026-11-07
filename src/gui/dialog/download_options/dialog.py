@@ -43,7 +43,7 @@ class DownloadOptionsDialog(TopNavigationDialogBase):
 
         self.preview_bar = DownloadPreviewBar(self)
 
-        self.setBottomLeftWidget(self.preview_bar)
+        self.vboxLayout.insertWidget(self.vboxLayout.count() - 1, self.preview_bar)
 
         self.on_update_preview()
 

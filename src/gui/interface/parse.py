@@ -4,7 +4,7 @@ from PySide6.QtGui import QKeyEvent
 
 from qfluentwidgets import (
     LineEdit, BodyLabel, FluentIcon, RoundMenu, Action, PrimaryPushButton, InfoBarIcon,
-    TeachingTipTailPosition, TeachingTip
+    TeachingTipTailPosition, TeachingTip, TransparentPushButton
 )
 
 from gui.component.widget.button import TransparentToolButton, IndeterminateProgressSplitPushButton
@@ -12,6 +12,7 @@ from gui.component.widget.combobox import SeasonComboBox
 from gui.component.widget.progress_tip import ProgressTipWidget
 from gui.component.widget.segment import SegmentedWidget
 from gui.component.parse_list import ParseTreeView
+from gui.component.widget.page_header import PageHeader
 
 from util.common.enum import ToastNotificationCategory, AutoSelectMode, ParserType, DuplicateDownloadResolution
 from util.common.signal_bus import signal_bus
@@ -95,7 +96,7 @@ class ParseInterface(QFrame):
         paste_action.triggered.connect(lambda _: self.on_paste_and_parse())
 
         self.url_box = LineEdit(self)
-        self.url_box.setPlaceholderText(self.tr("Link / av / BV / ep / ss / md / Favorites / Profile"))
+        self.url_box.setPlaceholderText(self.tr("Paste a Bilibili link or video ID"))
         self.url_box.addAction(paste_action, LineEdit.ActionPosition.TrailingPosition)
 
         self.url_box.setClearButtonEnabled(True)
@@ -114,17 +115,17 @@ class ParseInterface(QFrame):
         self.search_btn.setToolTip(self.tr("Search"))
         self.search_btn.setFixedSize(28, 28)
 
-        self.history_btn = TransparentToolButton(FluentIcon.HISTORY, self)
+        self.history_btn = TransparentPushButton(FluentIcon.HISTORY, self.tr("Parsing History"), self)
         self.history_btn.setToolTip(self.tr("Parsing History"))
-        self.history_btn.setFixedSize(28, 28)
+        self.history_btn.setMinimumHeight(32)
 
-        self.batch_select_btn = TransparentToolButton(ExtendedFluentIcon.TODO, self)
+        self.batch_select_btn = TransparentPushButton(FluentIcon.CHECKBOX, self.tr("Batch Select"), self)
         self.batch_select_btn.setToolTip(self.tr("Batch Select"))
-        self.batch_select_btn.setFixedSize(28, 28)
+        self.batch_select_btn.setMinimumHeight(32)
 
-        self.download_option_btn = TransparentToolButton(ExtendedFluentIcon.OPTIONS, self)
+        self.download_option_btn = TransparentPushButton(FluentIcon.SETTING, self.tr("Download Options"), self)
         self.download_option_btn.setToolTip(self.tr("Download Options"))
-        self.download_option_btn.setFixedSize(28, 28)
+        self.download_option_btn.setMinimumHeight(32)
 
         self.parse_list = ParseTreeView(self.main_window, parent = self)
 
@@ -145,24 +146,26 @@ class ParseInterface(QFrame):
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.url_box)
         top_layout.addWidget(self.parse_btn)
+        top_layout.addWidget(self.history_btn)
 
         toolbar_layout = QHBoxLayout()
         toolbar_layout.addWidget(self.item_count_label)
         toolbar_layout.addStretch()
         toolbar_layout.addWidget(self.search_btn)
-        toolbar_layout.addWidget(self.history_btn)
         toolbar_layout.addWidget(self.batch_select_btn)
-        toolbar_layout.addWidget(self.download_option_btn)
 
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.segmented_widget)
         bottom_layout.addWidget(self.season_choice)
         bottom_layout.addWidget(self.progress_widget)
         bottom_layout.addStretch()
+        bottom_layout.addWidget(self.download_option_btn)
         bottom_layout.addWidget(self.download_btn)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(25, 15, 25, 15)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+        main_layout.setSpacing(12)
+        main_layout.addWidget(PageHeader(self.tr("New download"), self.tr("Paste a link, select items, then choose what to download."), self))
         main_layout.addLayout(top_layout)
         main_layout.addLayout(toolbar_layout)
         main_layout.addWidget(self.parse_list)
