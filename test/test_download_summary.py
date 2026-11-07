@@ -15,9 +15,16 @@ def test_summary_counts_source_queue_and_ignores_stale_speed():
         tasks.append(task)
     widget = DownloadSummary(DownloadListModel(tasks), lambda: None)
     assert app is not None
-    assert 'Downloading 1' in widget.status.text()
-    assert 'Queued 1' in widget.status.text()
-    assert 'Failed 1' in widget.status.text()
+    assert widget.buttons[1].text().endswith('1')
+    assert widget.buttons[2].text().endswith('1')
+    assert widget.buttons[5].text().endswith('1')
+    assert widget.buttons[3].text().endswith('1')
+    selected = []
+    widget.filterRequested.connect(selected.append)
+    widget.buttons[3].click()
+    assert selected == [frozenset({DownloadStatus.PAUSED})]
+    assert widget.buttons[3].isChecked()
+    assert not widget.buttons[0].isChecked()
     assert '1 KB/s' in widget.status.text()
     widget.close()
 
@@ -45,3 +52,27 @@ def test_parallel_control_saves_and_syncs(monkeypatch):
     finally:
         config.set(config.download_parallel, old)
         widget.close()
+
+
+def test_status_chips_filter_queue(monkeypatch):
+    from gui.interface.download import DownloadInterface
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(DownloadInterface, 'get_tasks', lambda self: None)
+    page = DownloadInterface()
+    tasks = []
+    for i, state in enumerate([DownloadStatus.PAUSED, DownloadStatus.FAILED, DownloadStatus.MERGING]):
+        task = TaskInfo()
+        task.Basic.task_id = str(i)
+        task.Download.status = state
+        tasks.append(task)
+    page.downloading_list_view._source_model.appendRows(tasks)
+    from PySide6.QtTest import QTest
+    page.queue_summary.buttons[3].click()
+    QTest.qWait(100)
+    assert page.downloading_list_view._model.rowCount() == 1
+    assert page.downloading_list_view.status_filter == frozenset({DownloadStatus.PAUSED})
+    page.queue_summary.buttons[0].click()
+    QTest.qWait(100)
+    assert page.downloading_list_view._model.rowCount() == 3
+    assert app is not None
+    page.close()

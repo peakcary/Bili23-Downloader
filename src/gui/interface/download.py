@@ -61,6 +61,7 @@ class DownloadInterface(QFrame):
         self.queue_summary = DownloadSummary(
             self.downloading_list_view._source_model,
             self.downloading_list_view._schedule_auto_manage_concurrent_downloads, self)
+        self.queue_summary.filterRequested.connect(self.on_summary_filter)
         self.list_stacked_widget.currentChanged.connect(
             lambda index: self.queue_summary.setVisible(index == 0))
 
@@ -93,6 +94,11 @@ class DownloadInterface(QFrame):
 
         self.top_stacked_widget.search_downloading_list_box.textChanged.connect(self.downloading_list_view.setFilterText)
         self.top_stacked_widget.search_completed_list_box.textChanged.connect(self.completed_list_view.setFilterText)
+
+    def on_summary_filter(self, statuses):
+        self.downloading_list_view.setStatusFilter(statuses)
+        self.top_stacked_widget.filter_downloading_list_btn.setChecked(
+            bool(statuses or self.downloading_list_view.media_type_filter))
 
     def on_sort_downloading_list(self, key: str, ascending: bool):
         self._save_sort_preference(

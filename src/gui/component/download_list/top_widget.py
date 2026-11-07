@@ -522,6 +522,8 @@ class TopStackedWidget(QStackedWidget):
     def _show_filter_flyout(self, list_view, status_group_dict, target: ToggleToolButton):
         def trigger_signal_func(statuses: set, media_types: set):
             list_view.setStatusFilter(statuses)
+            if hasattr(self.parent(), "queue_summary") and list_view is self.parent().downloading_list_view:
+                self.parent().queue_summary.syncFilter(statuses)
             list_view.setMediaTypeFilter(media_types)
 
         def update_button_state():

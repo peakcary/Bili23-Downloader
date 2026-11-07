@@ -5974,5 +5974,12 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
         <source>Downloading %s · Queued %s · Failed %s · Total speed %s/s</source>
         <translation>正在下载 %s · 排队 %s · 失败 %s · 总速度 %s/s</translation>
     </message>
+    <message><source>All</source><translation>全部</translation></message>
+    <message><source>Downloading</source><translation>下载中</translation></message>
+    <message><source>Queued</source><translation>排队</translation></message>
+    <message><source>Paused</source><translation>已暂停</translation></message>
+    <message><source>Processing</source><translation>处理中</translation></message>
+    <message><source>Failed</source><translation>失败</translation></message>
+    <message><source>Total speed %s/s</source><translation>总速度 %s/s</translation></message>
 </context>
 </TS>
