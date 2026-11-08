@@ -10,9 +10,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AudioInfoParser:
-    def __init__(self, info_data: dict, task_info: TaskInfo):
+    def __init__(self, info_data: dict, task_info: TaskInfo, stop_event=None):
         self.info_data = info_data
         self.task_info = task_info
+        self.stop_event = stop_event
 
         self.audio_quality_info_map = defaultdict(dict)
 
@@ -89,7 +90,7 @@ class AudioInfoParser:
             if temp_audio_file_name not in self.task_info.File.relative_files:
                 self.task_info.File.relative_files.append(temp_audio_file_name)
 
-            info = QueryWorker(audio_info)
+            info = QueryWorker(audio_info, self.stop_event)
 
             return [
                 {

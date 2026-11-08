@@ -1348,6 +1348,64 @@ Please note that download history is the sole basis for recognizing downloaded v
             <source>Inspect media</source>
             <translation>检查媒体</translation>
         </message>
+    <message>
+        <source>Failure details</source>
+        <translation>失败详情</translation>
+    </message>
+    <message>
+        <source>Time: {time}
+Stage: {stage}
+Category: {category}
+Automatic retries: {retries}
+
+{message}</source>
+        <translation>时间：{time}
+阶段：{stage}
+类别：{category}
+自动重试次数：{retries}
+
+{message}</translation>
+    </message>
+    <message>
+        <source>Link parsing</source>
+        <translation>链接解析</translation>
+    </message>
+    <message>
+        <source>Media download</source>
+        <translation>媒体下载</translation>
+    </message>
+    <message>
+        <source>Media processing</source>
+        <translation>媒体处理</translation>
+    </message>
+    <message>
+        <source>Connection pool</source>
+        <translation>连接池</translation>
+    </message>
+    <message>
+        <source>Proxy</source>
+        <translation>代理</translation>
+    </message>
+    <message>
+        <source>Certificate or TLS</source>
+        <translation>证书或 TLS</translation>
+    </message>
+    <message>
+        <source>Timeout</source>
+        <translation>超时</translation>
+    </message>
+    <message>
+        <source>HTTP response</source>
+        <translation>HTTP 响应</translation>
+    </message>
+    <message>
+        <source>File access</source>
+        <translation>文件读写</translation>
+    </message>
+    <message>
+        <source>Unclassified</source>
+        <translation>未分类</translation>
+    </message>
 </context>
 <context>
     <name>DownloadOptionsDialog</name>

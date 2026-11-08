@@ -454,8 +454,13 @@ class Merger(QObject):
         self.set_error_message(Translator.ERROR_MESSAGES("DOWNLOAD_FAILED"), long_message)
 
     def set_error_message(self, short_message: str, description: str):
+        from ...common.diagnostics import failure_record
         self._has_error = True
         self.task_info.Download.status = DownloadStatus.FFMPEG_FAILED
+        self.task_info.Download.last_error = failure_record(
+            self.task_info.Download.last_error, "merge", description)
+        description = self.task_info.Download.last_error["message"]
+        task_manager.update_async(self.task_info)
 
         signal_bus.download.update_downloading_item.emit(self.task_info)
 

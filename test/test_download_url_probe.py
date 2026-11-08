@@ -382,3 +382,16 @@ class TestProbeClientLifetime:
         assert [r.method for r in calls] == ['HEAD', 'GET']
         assert calls[1].headers['Range'] == 'bytes=0-0'
         assert client.is_closed
+
+
+def test_cancelled_probe_does_not_submit_remaining_candidates(candidate_list, monkeypatch):
+    from concurrent.futures import CancelledError
+    stop = Event()
+    urls = make_urls(10)
+    candidate_list(urls)
+    stop.set()
+    calls = []
+    monkeypatch.setattr(download_url, '_probe_url', lambda *args: calls.append(args))
+    with pytest.raises(CancelledError):
+        download_url.resolve_download_url(urls, stop_event=stop)
+    assert calls == []

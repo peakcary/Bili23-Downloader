@@ -17,6 +17,7 @@ from ..task.options import resolve
 from urllib.parse import urlencode
 import logging
 import time
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,16 @@ class ParseAbortError(RuntimeError):
     pass
 
 class ParseWorker(QRunnable, ParserBase):
-    def __init__(self, task_info: TaskInfo, parent = None, on_finished = None, stop_event = None):
+    download_fields = ("media_type", "type", "video_quality_id", "video_codec_id",
+                       "audio_quality_id", "video_parts_count", "merge_video_audio", "keep_original_files")
+    file_fields = ("video_file_ext", "audio_file_ext", "merge_file_ext")
+
+    def __init__(self, task_info: TaskInfo, parent = None, on_finished = None, stop_event = None, generation=0):
         super().__init__()
 
-        self.task_info = task_info
+        # Background parsing must not mutate the live GUI/download task.
+        self.task_info = deepcopy(task_info)
+        self.generation = generation
         self.info_data: dict = None
 
         self.parent = parent
@@ -79,14 +86,20 @@ class ParseWorker(QRunnable, ParserBase):
                 self.get_info()
 
                 download_info = self.parse_download_info()
-                download_info_json = dumps(download_info)
+                download_info_json = dumps({
+                    "generation": self.generation,
+                    "info": download_info,
+                    "download": {key: getattr(self.task_info.Download, key) for key in self.download_fields},
+                    "file": {key: getattr(self.task_info.File, key) for key in self.file_fields},
+                    "relative_files": list(self.task_info.File.relative_files),
+                })
 
                 if self.is_stopped():
                     return
 
                 QMetaObject.invokeMethod(
                     self.parent,
-                    "on_parse_finished",
+                    "on_parse_result",
                     Qt.ConnectionType.QueuedConnection,
                     Q_ARG(str, download_info_json)     # 由于不支持直接传递字典，所以传递 json 字符串，在主线程再转换回来
                 )
@@ -101,6 +114,8 @@ class ParseWorker(QRunnable, ParserBase):
                 break
 
             except Exception as e:
+                if self.is_stopped():
+                    return
                 logger.warning("解析下载链接失败（第 %s/%s 次尝试）", attempt, PARSE_MAX_ATTEMPTS, exc_info = True)
 
                 error_message = str(e)
@@ -258,7 +273,7 @@ class ParseWorker(QRunnable, ParserBase):
         download_list = {}
 
         if self.task_info.Download.type & DownloadType.VIDEO != 0:
-            video_info_parser = VideoInfoParser(self.info_data, self.task_info)
+            video_info_parser = VideoInfoParser(self.info_data, self.task_info, stop_event=self.stop_event)
 
             for entry in video_info_parser.parse_info():
                 total_size += entry.get("file_size", 0)
@@ -267,7 +282,7 @@ class ParseWorker(QRunnable, ParserBase):
                 download_list[file_key] = entry
 
         if self.task_info.Download.type & DownloadType.AUDIO != 0:
-            audio_info_parser = AudioInfoParser(self.info_data, self.task_info)
+            audio_info_parser = AudioInfoParser(self.info_data, self.task_info, stop_event=self.stop_event)
 
             for entry in audio_info_parser.parse_info():
                 total_size += entry.get("file_size", 0)
@@ -286,11 +301,13 @@ class ParseWorker(QRunnable, ParserBase):
         }
 
     def on_parse_error(self, error_message: str):
+        if self.is_stopped():
+            return
         QMetaObject.invokeMethod(
             self.parent,
-            "on_parse_error",
+            "on_parse_failure",
             Qt.ConnectionType.QueuedConnection,
-            Q_ARG(str, error_message)
+            Q_ARG(str, dumps({"generation": self.generation, "message": error_message}))
         )
 
     def check_response(self, response: dict):

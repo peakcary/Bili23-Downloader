@@ -93,7 +93,8 @@ log_path.parent.mkdir(parents = True, exist_ok = True)
 class CompactLogFormatter(logging.Formatter):
     def format(self, record):
         record.callsite = f"{record.filename}:{record.lineno} in {record.funcName}"
-        return super().format(record)
+        from util.common.diagnostics import redact_diagnostic
+        return redact_diagnostic(super().format(record))
 
     def formatTime(self, record, datefmt = None):
         dt = datetime.fromtimestamp(record.created)

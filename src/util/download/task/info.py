@@ -137,6 +137,9 @@ class DownloadInfo(InfoBase):
 
     video_parts_count: int = 0
 
+    # 最近一次失败，重试成功后仍保留用于诊断；旧任务默认无记录。
+    last_error: dict = field(default_factory=dict)
+
     # 显示信息
     info_label: str = ""
     status_label: str = ""

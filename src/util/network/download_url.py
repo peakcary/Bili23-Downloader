@@ -54,7 +54,7 @@ def get_probe_client():
     )
 
 
-def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict:
+def resolve_download_url(url_list: list[str], min_file_size: int = 1024, stop_event=None) -> dict:
     from concurrent.futures import ThreadPoolExecutor
 
     start = time.monotonic()
@@ -82,7 +82,7 @@ def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict
     executor = ThreadPoolExecutor(max_workers = PROBE_CONCURRENCY, thread_name_prefix = "cdn-probe")
 
     try:
-        result = _probe_candidates(executor, candidate_list, min_file_size, failed_hosts, stats)
+        result = _probe_candidates(executor, candidate_list, min_file_size, failed_hosts, stats, stop_event)
 
         if result is None and stats["inconclusive"]:
             # 唯一值得补测的是"没能得出结论"的候选（连接池排队）：它既不能算节点失败
@@ -93,7 +93,7 @@ def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict
             retry_list = stats["inconclusive"]
             stats["inconclusive"] = []
 
-            result = _probe_candidates(executor, retry_list, min_file_size, failed_hosts, stats)
+            result = _probe_candidates(executor, retry_list, min_file_size, failed_hosts, stats, stop_event)
 
         if result:
             return result
@@ -123,8 +123,13 @@ def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict
     ))
 
 
-def _probe_candidates(executor, candidate_list: list[str], min_file_size: int, failed_hosts: set, stats: dict) -> dict:
+def _probe_candidates(executor, candidate_list: list[str], min_file_size: int, failed_hosts: set, stats: dict, stop_event=None) -> dict:
     from concurrent.futures import wait, FIRST_COMPLETED
+
+    def check_stopped():
+        if stop_event is not None and stop_event.is_set():
+            from concurrent.futures import CancelledError
+            raise CancelledError("Download probe cancelled")
 
     pending = {}
     order = {}
@@ -137,6 +142,7 @@ def _probe_candidates(executor, candidate_list: list[str], min_file_size: int, f
         nonlocal index
 
         while len(pending) < PROBE_CONCURRENCY and index < count:
+            check_stopped()
             url = candidate_list[index]
             position = index
             index += 1
@@ -157,7 +163,8 @@ def _probe_candidates(executor, candidate_list: list[str], min_file_size: int, f
 
     # pending 为空就退出，不留空转的可能：wait 至少要有一个 future 才调用
     while pending:
-        done, _ = wait(list(pending), return_when = FIRST_COMPLETED)
+        check_stopped()
+        done, _ = wait(list(pending), timeout=0.1, return_when = FIRST_COMPLETED)
 
         winners = []
 

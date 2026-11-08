@@ -105,15 +105,21 @@ def _load_system_certs(context: ssl.SSLContext):
         # 叠加失败不影响上面已经加载好的证书，保持原有行为继续可用即可，不必让整个上下文构建失败
         logger.warning("加载系统根证书失败，仅使用已加载的证书列表", exc_info = True)
 
-def get_mounts(proxies = None):
+def _proxy_transport(proxy_url):
     import httpx
+    from .recovering_transport import RecoveringTransport
 
+    return RecoveringTransport(lambda: httpx.HTTPTransport(
+        proxy=proxy_url, retries=0, limits=get_limits(), verify=get_ssl_context()))
+
+
+def get_mounts(proxies = None):
     if proxies:
         proxy_url = proxies.get("http") or proxies.get("https")
 
         return {
-            "http://": httpx.HTTPTransport(proxy = proxy_url, retries = 5, limits = get_limits(), verify = get_ssl_context()),
-            "https://": httpx.HTTPTransport(proxy = proxy_url, retries = 5, limits = get_limits(), verify = get_ssl_context())
+            "http://": _proxy_transport(proxy_url),
+            "https://": _proxy_transport(proxy_url)
         }
     else:
         return None
@@ -137,7 +143,6 @@ def get_env_mounts():
     # 本项目为了设置 retries 并复用全局 SSLContext，一律显式传入 transport，系统代理因此被静默绕过：
     # 用户明明开着代理，程序却直连 bilibili，部分网络环境下会被服务端重置连接（Error 10054），
     # 表现为二维码登录等请求直接失败。这里把系统代理手动还原成 mounts，补回 httpx 的默认行为。
-    import httpx
 
     mounts = {}
 
@@ -148,7 +153,7 @@ def get_env_mounts():
         else:
             try:
                 # httpx 对 http(s) 代理不使用 retries，此处与 get_mounts 一样只依赖代理本身的连接行为
-                mounts[pattern] = httpx.HTTPTransport(proxy = proxy_url, limits = get_limits(), verify = get_ssl_context())
+                mounts[pattern] = _proxy_transport(proxy_url)
 
             except Exception as e:
                 # httpx 不认识的代理协议（如 socks4）会抛 ValueError，socks5 缺少 socksio 依赖时会抛 ImportError。

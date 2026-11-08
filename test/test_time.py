@@ -29,7 +29,18 @@ class TestTimestamp:
     def test_negative_timestamp(self):
         # 1970 年之前的时间戳不应抛异常（Windows 上 datetime.fromtimestamp 会报错，
         # 由 _EPOCH + timedelta 兜底）
-        assert Time.from_timestamp(-1).year == 1969
+        assert Time.to_timestamp(Time.from_timestamp(-1)) == -1
+
+    def test_negative_timestamp_fallback(self, monkeypatch):
+        import util.format.time as module
+
+        class UnsupportedNegativeTime(datetime):
+            @classmethod
+            def fromtimestamp(cls, value):
+                raise OSError("unsupported timestamp")
+
+        monkeypatch.setattr(module, "datetime", UnsupportedNegativeTime)
+        assert Time.from_timestamp(-1) == datetime(1969, 12, 31, 23, 59, 59)
 
     def test_out_of_range_timestamp(self):
         # 远超 datetime 支持范围的脏数据同样不能让格式化崩掉

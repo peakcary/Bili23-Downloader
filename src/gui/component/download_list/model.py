@@ -122,35 +122,31 @@ class DownloadListModel(CoverQueryModelBase):
         self._rebuild_row_index()
 
     def togglePauseResume(self, task_info: TaskInfo):
-        # 在暂停与继续之间切换
+        if task_info.Download.status in (DownloadStatus.DOWNLOADING, DownloadStatus.PARSING):
+            self._pause_task(task_info)
+        elif task_info.Download.status in (DownloadStatus.QUEUED, DownloadStatus.PAUSED,
+                                          DownloadStatus.FAILED, DownloadStatus.FFMPEG_FAILED):
+            self._queue_task(task_info)
+        self.manageConcurrentDownloads()
 
-        # 在此处实现懒加载，get不存在时会自动创建 Downloader 实例并加入管理器
-        downloader = downloader_manager.get(task_info, create_if_not_exists = True) 
+    def _queue_task(self, task):
+        state = task.Download.status
+        downloader = downloader_manager.get(task, create_if_not_exists=False)
+        if downloader and state in (DownloadStatus.FAILED, DownloadStatus.FFMPEG_FAILED):
+            downloader.reset_retry_budget()
+        task.Download.status = (DownloadStatus.FFMPEG_QUEUED if state == DownloadStatus.FFMPEG_FAILED
+                                else DownloadStatus.QUEUED)
+        task_manager.update_async(task)
+        self.onUpdateData(task)
 
-        match task_info.Download.status:
-            case DownloadStatus.QUEUED:
-                # 启动下载
-                downloader.start()
-
-            case DownloadStatus.DOWNLOADING:
-                # 暂停下载
-                downloader.pause()
-
-                self.manageConcurrentDownloads()
-
-            case DownloadStatus.PAUSED:
-                # 继续下载
-                downloader.resume()
-
-            case DownloadStatus.FFMPEG_QUEUED:
-                # 启动合并
-                downloader.start_merge()
-
-            case DownloadStatus.FAILED | DownloadStatus.FFMPEG_FAILED:
-                # 重试下载
-                downloader.retry()
-
-        self.onUpdateData(task_info)
+    def _pause_task(self, task):
+        downloader = downloader_manager.get(task, create_if_not_exists=False)
+        if downloader:
+            downloader.pause()
+        else:
+            task.Download.status = DownloadStatus.PAUSED
+            task_manager.update_async(task)
+        self.onUpdateData(task)
 
     def cancelDownload(self, task_info: TaskInfo):
         match task_info.Download.status:
@@ -174,23 +170,16 @@ class DownloadListModel(CoverQueryModelBase):
         # task_list 为 None 时作用于整个列表；列表筛选生效时由代理模型传入当前可见的任务
         for task in self._targetTasks(task_list):
             if task.Download.status in [DownloadStatus.PAUSED, DownloadStatus.FFMPEG_FAILED, DownloadStatus.FAILED]:
-                # 从暂停状态变为等待状态，由 manage_concurrent_downloads 统一调度
-                task.Download.status = DownloadStatus.QUEUED
-
-                self.onUpdateData(task)
+                self._queue_task(task)
 
         self.manageConcurrentDownloads()
 
     def batchPause(self, task_list: List[TaskInfo] = None):
         for task in self._targetTasks(task_list):
-            if task.Download.status in [DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                task.Download.status = DownloadStatus.PAUSED
-                downloader = downloader_manager.get(task, create_if_not_exists = False)
+            if task.Download.status in (DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED, DownloadStatus.PARSING):
+                self._pause_task(task)
 
-                if downloader:
-                    downloader.pause()
-
-                self.onUpdateData(task)
+        self.manageConcurrentDownloads()
 
     def batch_cancel(self, task_list: List[TaskInfo] = None):
         # 已完成的任务走批量路径：一次数据库删除 + 一次界面刷新。
@@ -256,7 +245,8 @@ class DownloadListModel(CoverQueryModelBase):
             if active_count >= limit:
                 break
 
-            self.togglePauseResume(task)
+            downloader_manager.get(task, create_if_not_exists=True).start()
+            self.onUpdateData(task)
 
             # 启动后任务可能直接跳到合并阶段，此时不占用下载并发额度
             if task.Download.status in [DownloadStatus.DOWNLOADING, DownloadStatus.PARSING]:
@@ -296,7 +286,8 @@ class DownloadListModel(CoverQueryModelBase):
             if merging_count >= 1:
                 break
 
-            self.togglePauseResume(task)
+            downloader_manager.get(task, create_if_not_exists=True).start_merge()
+            self.onUpdateData(task)
 
             # 无需调用 ffmpeg 的任务会同步完成，不占用合并额度
             if task.Download.status in [DownloadStatus.MERGING, DownloadStatus.CONVERTING]:

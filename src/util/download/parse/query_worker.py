@@ -1,8 +1,9 @@
 from ...network.download_url import resolve_download_url
 
 class QueryWorker:
-    def __init__(self, media_info: dict):
+    def __init__(self, media_info: dict, stop_event=None):
         self.media_info = media_info
+        self.stop_event = stop_event
 
         self.break_flag = False
 
@@ -25,9 +26,9 @@ class QueryWorker:
         return url_list
 
     def get_file_size(self, download_urls: list):
-        return resolve_download_url(download_urls, min_file_size = 1024)
+        return resolve_download_url(download_urls, min_file_size = 1024, stop_event=self.stop_event)
 
-    def get_download_urls(self, media_info: dict):
+    def get_download_urls(self, media_info: dict, stop_event=None):
         download_urls = []
 
         for key in ["baseUrl", "base_url", "backupUrl", "backup_url", "url"]:

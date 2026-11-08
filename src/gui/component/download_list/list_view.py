@@ -65,6 +65,9 @@ class DownloadListView(ListView):
             case DownloadStatus.DOWNLOADING:
                 menu.addAction(self._create_action(FluentIcon.PAUSE, self.tr("Pause"), lambda: self.onTogglePauseResumeTask(index, task_info)))
 
+        if task_info.Download.last_error:
+            menu.addAction(self._create_action(FluentIcon.INFO, self.tr("Failure details"), lambda: self.onFailureDetails(task_info)))
+
         menu.addAction(self._create_action(ExtendedFluentIcon.RETRY, self.tr("Re-download"), lambda: self.onRedownloadTask(index, task_info)))
 
         #menu.addAction(self._create_action(FluentIcon.EDIT, self.tr("Edit download options"), lambda: self.onEditDownloadOptions(index, task_info)))
@@ -74,6 +77,24 @@ class DownloadListView(ListView):
         menu.addAction(self._create_action(FluentIcon.DELETE, self.tr("Delete"), lambda: self.onCancelTask(index, task_info)))
 
         menu.exec(pos)
+
+    def onFailureDetails(self, task_info):
+        from gui.component.dialog import MessageBox
+        from util.common.diagnostics import redact_diagnostic
+        error = task_info.Download.last_error
+        stages = {"parse": self.tr("Link parsing"), "download": self.tr("Media download"),
+                  "merge": self.tr("Media processing")}
+        categories = {"connection_pool": self.tr("Connection pool"), "proxy": self.tr("Proxy"),
+                      "tls": self.tr("Certificate or TLS"), "timeout": self.tr("Timeout"),
+                      "http": self.tr("HTTP response"), "filesystem": self.tr("File access"),
+                      "unknown": self.tr("Unclassified")}
+        content = self.tr("Time: {time}\nStage: {stage}\nCategory: {category}\nAutomatic retries: {retries}\n\n{message}").format(
+            time=error.get("time", ""), stage=stages.get(error.get("stage"), self.tr("Unclassified")),
+            category=categories.get(error.get("category"), self.tr("Unclassified")),
+            retries=error.get("auto_retry_count", 0), message=error.get("message", ""))
+        dialog = MessageBox(self.tr("Failure details"), redact_diagnostic(content), self.window())
+        dialog.hideCancelButton()
+        dialog.exec()
 
     def onInspectMedia(self, task_info):
         from gui.dialog.misc.media_inspection import MediaInspectionDialog

@@ -52,9 +52,10 @@ def warn_codec_fallback(requested_codec_id: int, actual_codec_id: int):
     )
 
 class VideoInfoParser:
-    def __init__(self, info_data: dict, task_info: TaskInfo):
+    def __init__(self, info_data: dict, task_info: TaskInfo, stop_event=None):
         self.info_data = info_data
         self.task_info = task_info
+        self.stop_event = stop_event
 
         self.video_info_map = defaultdict(lambda: defaultdict(dict))
         # support_formats 声明的「画质 -> 编码」，缺失时为 None，表示只能以 dash.video 为准
@@ -227,7 +228,7 @@ class VideoInfoParser:
         if temp_video_file_name not in self.task_info.File.relative_files:
             self.task_info.File.relative_files.append(temp_video_file_name)
 
-        worker = QueryWorker(video_info)
+        worker = QueryWorker(video_info, self.stop_event)
         
         return [
             {
@@ -239,7 +240,7 @@ class VideoInfoParser:
         ]
     
     def make_mp4_video_info(self, video_info: dict, ext: str):
-        worker = QueryWorker(video_info)
+        worker = QueryWorker(video_info, self.stop_event)
 
         info_list = []
 

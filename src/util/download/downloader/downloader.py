@@ -6,7 +6,7 @@ from ...common.data import reversed_video_quality_map
 from ...common.io.directory import Directory
 from ...common.translator import Translator
 from ...common.signal_bus import signal_bus
-from ...common._json import loads
+from ...common._json import loads, dumps
 from ...common.config import config
 from ...common.io.file import File
 
@@ -161,13 +161,14 @@ class ChunkWorker(QRunnable):
         return False
 
     def _build_error_message(self, exc: Exception):
+        from ...common.diagnostics import redact_diagnostic
         if isinstance(exc, httpx.HTTPStatusError):
             response = getattr(exc, "response", None)
             status_code = getattr(response, "status_code", None)
-            return f"请求返回异常状态码 {status_code}: {exc}"
+            return redact_diagnostic(f"请求返回异常状态码 {status_code}: {exc}")
 
         if isinstance(exc, httpx.RequestError):
-            return str(exc)
+            return redact_diagnostic(exc)
 
         if isinstance(exc, OSError):
             return f"文件读写失败: {exc}"
@@ -569,6 +570,9 @@ class Downloader(QObject):
         self._releasing_pool = None
 
         self._stop_event = Event()
+        self._parse_stop_event = Event()
+        self._parse_generation = 0
+        self._parse_result_pending = False
         self.update_lock = Lock()
         self.count_lock = Lock()
 
@@ -653,6 +657,10 @@ class Downloader(QObject):
             if download_video or download_audio:
                 self.task_info.Download.status = DownloadStatus.PARSING
                 self._stop_event.clear()
+                self._parse_stop_event.set()
+                self._parse_stop_event = Event()
+                self._parse_generation += 1
+                self._parse_result_pending = True
 
                 # 对象正在销毁时不再启动解析，否则回调会落到已析构的对象上
                 if not self._acquire_ref():
@@ -660,9 +668,11 @@ class Downloader(QObject):
 
                 # 解析失败会自动重试，等待期间用户可能暂停或取消任务，
                 # 因此把停止标记一并交给 worker，让它能及时放弃
-                parse_worker = ParseWorker(self.task_info, self, on_finished = self._release_ref, stop_event = self._stop_event)
-
                 try:
+                    with self.update_lock:
+                        parse_worker = ParseWorker(
+                            self.task_info, self, on_finished=self._release_ref,
+                            stop_event=self._parse_stop_event, generation=self._parse_generation)
                     GlobalThreadPoolTask.run(parse_worker)
 
                 except Exception:
@@ -673,6 +683,34 @@ class Downloader(QObject):
                 self.task_info.Download.info_label = Translator.TIP_MESSAGES("ADDITIONAL_FILES")
                 self.update_item(self.task_info)
                 self.on_download_completed()
+
+    def _accept_parse_result(self, result):
+        if (self.task_info is None or self._stop_event.is_set() or self._parse_stop_event.is_set()
+                or not self._parse_result_pending or result.get("generation") != self._parse_generation):
+            return False
+        self._parse_result_pending = False
+        return True
+
+    @Slot(str)
+    def on_parse_result(self, payload):
+        result = loads(payload)
+        if not self._accept_parse_result(result):
+            return
+        for key in ParseWorker.download_fields:
+            setattr(self.task_info.Download, key, result["download"][key])
+        for key in ParseWorker.file_fields:
+            setattr(self.task_info.File, key, result["file"][key])
+        # Preserve other files registered while the request was in flight.
+        for name in result["relative_files"]:
+            if name not in self.task_info.File.relative_files:
+                self.task_info.File.relative_files.append(name)
+        self.on_parse_finished(dumps(result["info"]))
+
+    @Slot(str)
+    def on_parse_failure(self, payload):
+        result = loads(payload)
+        if self._accept_parse_result(result):
+            self.on_parse_error(result["message"])
 
     @Slot(str)
     def on_parse_finished(self, download_info_json: str):
@@ -725,8 +763,18 @@ class Downloader(QObject):
 
                 file_info["file_size"] = new_size
 
+    def _record_error(self, stage, message, retryable=None):
+        from ...common.diagnostics import failure_record
+        self.task_info.Download.last_error = failure_record(
+            self.task_info.Download.last_error, stage, message, retryable, self._auto_retry_count)
+
     @Slot(str)
     def on_parse_error(self, error_message: str):
+        if self._stop_event.is_set():
+            return
+        self._record_error("parse", error_message)
+        error_message = self.task_info.Download.last_error["message"]
+
         self._close_session()
         self.task_info.Download.status = DownloadStatus.FAILED
 
@@ -746,8 +794,11 @@ class Downloader(QObject):
             return
 
         self._download_error_triggered = True
+        self._record_error("download", error_message, retryable)
+        error_message = self.task_info.Download.last_error["message"]
         self.task_info.Download.status = DownloadStatus.FAILED
         self._stop_event.set()
+        self._parse_stop_event.set()
 
         # 提升代次，令仍排在线程池里的分片作废。否则用户点重试时 start() 会先清掉
         # stop_event，这批旧分片就可能在新代次分配之前被唤醒，拿着已关闭的会话乱写计数。
@@ -1130,6 +1181,7 @@ class Downloader(QObject):
 
         self.task_info.Download.status = DownloadStatus.PAUSED
         self._stop_event.set()
+        self._parse_stop_event.set()
 
         self._close_session()
         self.speed_timer.stop()
@@ -1142,10 +1194,14 @@ class Downloader(QObject):
         self._stop_event.clear()
         self.start()
 
+    def reset_retry_budget(self):
+        self._cancel_auto_retry()
+        self._auto_retry_count = 0
+
     def retry(self):
         # 用户手动介入，重新给一份完整的自动重试配额。
         # 自动重试走的是「改回 QUEUED 交给调度器」那条路，不经过这里，不会把自己的配额刷掉
-        self._auto_retry_count = 0
+        self.reset_retry_budget()
 
         match self.task_info.Download.status:
             case DownloadStatus.FAILED:
@@ -1566,6 +1622,7 @@ class Downloader(QObject):
         self.task_info.Download.status = DownloadStatus.FFMPEG_QUEUED
 
         self._stop_event.set()
+        self._parse_stop_event.set()
         self._close_session()
         self.speed_timer.stop()
 
@@ -1584,6 +1641,7 @@ class Downloader(QObject):
 
     def wait(self, on_end):
         self._stop_event.set()
+        self._parse_stop_event.set()
 
         with self.start_worker_lock:
             self.download_generation += 1
@@ -1683,6 +1741,7 @@ class Downloader(QObject):
         对象由操作系统回收，这里只需保证没有线程还在读写文件和网络。
         """
         self._stop_event.set()
+        self._parse_stop_event.set()
 
         with self.start_worker_lock:
             self.download_generation += 1
@@ -1710,6 +1769,7 @@ class Downloader(QObject):
         self._cancel_auto_retry()
 
         self._stop_event.set()
+        self._parse_stop_event.set()
 
         # 提升代次，令仍在运行的分片线程尽快退出，并且不再回调本对象
         with self.start_worker_lock:
