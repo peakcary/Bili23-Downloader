@@ -31,7 +31,7 @@ class MainWindow(MSFluentWindow):
         self.setObjectName("MainWindow")
 
         self.current_route_key = "ParseInterface"
-        self.flyout_initialized = False
+        self.favorites_interface = None
         self.initialized = False
 
         # 最后一次处于普通状态（非最大化、非最小化）时的窗口几何
@@ -83,7 +83,7 @@ class MainWindow(MSFluentWindow):
             "favorite",
             FluentIcon.HEART,
             self.tr("Favorites"),
-            onClick = self.show_favorites_flyout_menu,
+            onClick = self.show_favorites_page,
             selectable = True,
             position = NavigationItemPosition.TOP
         )
@@ -120,10 +120,7 @@ class MainWindow(MSFluentWindow):
             self.setStayOnTop(True)
 
     def init_deferred_ui(self):
-        from gui.component.widget.flyout import FavoriteFlyoutWidget
         from gui.component.sys_tray import SystemTrayIcon
-
-        from gui.component.widget.flyout_popup import Flyout
 
         from .download import DownloadInterface
 
@@ -135,17 +132,6 @@ class MainWindow(MSFluentWindow):
         self.system_tray_icon.show()
 
         signal_bus.toast.sys_show.connect(self.system_tray_icon.show_message)
-
-        self.flyout_widget = FavoriteFlyoutWidget(self)
-
-        self.flyout = Flyout.make(
-            view = self.flyout_widget,
-            parent = self,
-            isDeleteOnClose = False
-        )
-
-        self.flyout_widget.closed.connect(self.flyout.fadeOut)
-        self.flyout.closed.connect(self.reset_route_key)
 
     def ensure_setting_interface(self):
         # 首次进入设置页时才构造设置界面
@@ -725,9 +711,8 @@ class MainWindow(MSFluentWindow):
             self.tr("The built-in naming rules changed in this version, so all of your naming rules have been reset to the defaults. Please set them up again.")
         )
 
-    def show_favorites_flyout_menu(self):
-        from qfluentwidgets import FlyoutAnimationType, FlyoutAnimationManager, MessageBox
-        from PySide6.QtCore import QPoint
+    def show_favorites_page(self):
+        from qfluentwidgets import MessageBox
 
         if not config.get(config.is_login) or runtime.auth.is_expired:
             dialog = MessageBox(
@@ -742,25 +727,16 @@ class MainWindow(MSFluentWindow):
 
             return
         
-        if not self.flyout_initialized:
-            self.flyout_initialized = True
+        if self.favorites_interface is None:
+            from .favorites import FavoritesInterface
+            self.favorites_interface = FavoritesInterface(self)
+            self.favorites_interface.setProperty("isStackedTransparent", False)
+            self.stackedWidget.addWidget(self.favorites_interface)
+            self._updateStackedBackground()
+            self.favorites_interface.load()
 
-            # 首次显示时加载数据
-            self.flyout_widget.init_flyout()
-
-        self.flyout_widget.adjust_list_widget_width(self.size())
-        
-        manager = FlyoutAnimationManager.make(
-            aniType = FlyoutAnimationType.SLIDE_RIGHT,
-            flyout = self.flyout
-        )
-        target_pos: QPoint = manager.position(self.about_btn)
-        target_pos.setY(max(target_pos.y() + 20, 40))
-
-        self.flyout.exec(
-            target_pos,
-            FlyoutAnimationType.SLIDE_RIGHT
-        )
+        self.switchTo(self.favorites_interface)
+        self.update_route_key("favorite")
 
     def update_route_key(self, key: str):
         self.current_route_key = key

@@ -6112,4 +6112,9 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
     <message><source>Failed</source><translation>失敗</translation></message>
     <message><source>Total speed %s/s</source><translation>總速度 %s/s</translation></message>
 </context>
+<context>
+    <name>FavoritesInterface</name>
+    <message><source>Favorites</source><translation>收藏</translation></message>
+    <message><source>Browse your saved content and select an item to parse.</source><translation>瀏覽收藏內容，選擇項目後進入解析。</translation></message>
+</context>
 </TS>

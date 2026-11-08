@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget, QHBoxLayout
 from PySide6.QtCore import Signal, QSize
 
 from qfluentwidgets import (
-    FlyoutViewBase, FluentIcon, ComboBox, PopUpAniStackedWidget
+    FluentIcon, ComboBox, PopUpAniStackedWidget
 )
 
 from ..entry_list.list_view import EntryListView
@@ -156,7 +156,8 @@ class FollowWidget(QWidget):
 
         self.parser.parse_follow_list(self.pn, type, follow_status)
 
-class FavoriteFlyoutWidget(FlyoutViewBase):
+class FavoriteFlyoutWidget(QWidget):
+    # Keep the historical class name for existing translation contexts.
     closed = Signal()
 
     def __init__(self, parent = None):
@@ -264,20 +265,6 @@ class FavoriteFlyoutWidget(FlyoutViewBase):
         self.favorite_parser.parse_favorite_list()
         self.subscribtion_parser.parse_subscription_list()
         self.follow_widget.update_list()
-
-    def adjust_list_widget_width(self, parent_size: QSize):
-        if parent_size.width() >= 1250:
-            width = 1130        # 显示三列
-        else:
-            width = 830        # 显示两列
-
-        if parent_size.height() >= 700:
-            height = 655
-        else:
-            height = 475
-
-        # 分割线的高度由布局给出，这里不再手动 setFixedHeight
-        self.setFixedSize(width, height)
 
     def on_category_changed(self, index: int):
         self.stack_widget.setCurrentIndex(index)

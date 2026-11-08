@@ -110,6 +110,7 @@ sources = [
     "src/gui/component/download_list/summary.py",
     "src/gui/interface/main_window.py",
     "src/gui/interface/parse.py",
+    "src/gui/interface/favorites.py",
     "src/gui/interface/setting.py",
     "src/util/common/translator.py",
     "src/util/download/downloader/downloader.py",
