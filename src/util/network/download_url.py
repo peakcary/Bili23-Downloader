@@ -3,7 +3,6 @@ from .cdn import CDN, HostHealth
 
 from ..common.config import config
 
-from threading import Lock
 import logging
 import time
 
@@ -31,55 +30,28 @@ INCONCLUSIVE_REASONS = {
     "PoolTimeout"
 }
 
-_probe_client = None
-_probe_client_lock = Lock()
-
-
 def get_probe_client():
-    # 探测刻意不复用 request.py 的全局 client：
-    #
-    # 1. 全局 client 的 transport 带 retries = 3，遇到不回包的节点 httpx 会自己连续重试 4 次，
-    #    单次请求就是 4 × 5s 连接超时 + 3.5s 退避 ≈ 23s。探测的语义是"这个节点不行就立刻换
-    #    下一个"，在同一个节点上反复重试纯属浪费——候选之间本来就是等价的。
-    #    （http(s) 代理下 httpx 并不会把 retries 传给 httpcore.HTTPProxy，实际仍是 0 次；
-    #    显式写 0 是为了直连那条路径，见 request.py 的 get_mounts 与 get_env_mounts）
-    # 2. 全局 client 的连接池与解析、封面加载共用，且 pool 超时放宽到了 30s，
-    #    高并发下探测请求可能光排队就耗掉很久。
-    #
-    # 这里单开一个 retries = 0、各项超时都收紧的 client：探测失败立刻换下一个候选，
-    # 覆盖率由"扫完全部候选"保证。CDN 链接的鉴权信息全在查询参数里，不需要带 Cookie，
-    # 因此也不必掺和全局 cookiejar 的跨线程读写
-    global _probe_client
+    """Create a client owned by one candidate probe, never shared across tasks.
 
-    if _probe_client is None:
-        with _probe_client_lock:
-            if _probe_client is None:
-                import httpx
+    Some httpcore proxy TLS failures leave CONNECT tunnels ACTIVE in the pool.
+    Closing the candidate's client in a context manager reclaims those slots on
+    both success and failure, without closing other in-flight probes. HEAD and
+    its Range fallback still share a client; SSLContext remains cached.
+    """
+    import httpx
 
-                ssl_context = get_ssl_context()
-
-                _probe_client = httpx.Client(
-                    # limits 必须写在 transport 上：Client 一旦收到显式 transport，就会直接拿它
-                    # 当默认 transport、把自己那份 limits 整个忽略（见 request.py 的同款注释），
-                    # 写在 Client 上等于没写
-                    #
-                    # 连接数放宽：批量下载时多个任务会同时探测（每个任务并发 PROBE_CONCURRENCY 条），
-                    # 上限太低会让请求卡在连接池排队上，白白把候选判成 PoolTimeout
-                    transport = httpx.HTTPTransport(
-                        retries = 0,
-                        limits = httpx.Limits(max_connections = 64, max_keepalive_connections = 16),
-                        verify = ssl_context
-                    ),
-                    timeout = httpx.Timeout(PROBE_TIMEOUT, pool = PROBE_TIMEOUT),
-                    # 代理模式改动需要重启程序生效，因此这里创建一次即可。
-                    # 注意走代理时实际生效的是挂载里的 transport，它带的是 request.py 的
-                    # 48 / 24，这里的 64 / 16 只作用于直连
-                    mounts = get_proxy_mounts(),
-                    follow_redirects = True,
-                    verify = ssl_context
-                )
-
-    return _probe_client
+    ssl_context = get_ssl_context()
+    return httpx.Client(
+        transport=httpx.HTTPTransport(
+            retries=0,
+            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+            verify=ssl_context,
+        ),
+        mounts=get_proxy_mounts(),
+        timeout=httpx.Timeout(PROBE_TIMEOUT, pool=PROBE_TIMEOUT),
+        follow_redirects=True,
+        verify=ssl_context,
+    )
 
 
 def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict:
@@ -138,6 +110,9 @@ def resolve_download_url(url_list: list[str], min_file_size: int = 1024) -> dict
         len(candidate_list), host_count, stats["attempted"], stats["skipped"],
         time.monotonic() - start, "，".join(stats["reasons"][:8]) or "无"
     )
+
+    if stats["inconclusive"]:
+        raise RuntimeError("下载链接探测等待本地连接池超时，部分节点尚未完成探测，请重试")
 
     # 按节点口径报数：候选是按"节点 × 备份链接数"展开的，同一节点上换一条链接结果一样，
     # 所以真正的探测单位是节点数而不是候选数。原先那句"共 24 个候选，已尝试 12 个"把
@@ -251,27 +226,23 @@ def _probe_url(url: str, min_file_size: int) -> tuple[int, str]:
 
 
 def _probe_with_head(url: str, min_file_size: int) -> int:
-    response = get_probe_client().head(url, headers = _get_probe_headers())
+    with get_probe_client() as client:
+        response = client.head(url, headers=_get_probe_headers())
+        if response.status_code == 405:
+            return _probe_with_range_get(url, client)
 
-    if response.status_code == 405:
-        return _probe_with_range_get(url)
-
-    response.raise_for_status()
-    file_size = _extract_file_size(response.headers)
-
-    if file_size > min_file_size:
-        return file_size
-
-    return _probe_with_range_get(url)
+        response.raise_for_status()
+        file_size = _extract_file_size(response.headers)
+        if file_size > min_file_size:
+            return file_size
+        return _probe_with_range_get(url, client)
 
 
-def _probe_with_range_get(url: str) -> int:
+def _probe_with_range_get(url: str, client) -> int:
     headers = _get_probe_headers()
     headers["Range"] = "bytes=0-0"
-
-    with get_probe_client().stream("GET", url, headers = headers) as response:
+    with client.stream("GET", url, headers=headers) as response:
         response.raise_for_status()
-
         return _extract_file_size(response.headers)
 
 

@@ -319,3 +319,66 @@ class TestInconclusive:
         # 整轮都没得出结论，节点健康状态必须原封不动
         assert HostHealth._failures == {}
         assert HostHealth._cooldown_until == {}
+
+
+class TestProbeClientLifetime:
+    def test_proxy_tls_failures_do_not_exhaust_later_probes(self, monkeypatch):
+        """A real CONNECT/TLS failure must not poison subsequent pool slots."""
+        import socketserver
+        import threading
+        import httpx
+
+        class BrokenTunnel(socketserver.BaseRequestHandler):
+            def handle(self):
+                self.request.settimeout(1)
+                self.request.recv(8192)
+                self.request.sendall(b"HTTP/1.1 200 Connection established\r\n\r\n")
+
+        server = socketserver.ThreadingTCPServer(('127.0.0.1', 0), BrokenTunnel)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        clients = []
+
+        def mounts():
+            return {'https://': httpx.HTTPTransport(
+                proxy=f'http://127.0.0.1:{server.server_address[1]}',
+                limits=httpx.Limits(max_connections=2))}
+
+        factory = download_url.get_probe_client
+
+        def tracked_client():
+            client = factory()
+            clients.append(client)
+            return client
+
+        monkeypatch.setattr(download_url, 'get_proxy_mounts', mounts)
+        monkeypatch.setattr(download_url, 'get_probe_client', tracked_client)
+        monkeypatch.setattr(download_url, 'PROBE_TIMEOUT', 0.2)
+        try:
+            reasons = [download_url._probe_url('https://example.invalid/test', 1024)[1]
+                       for _ in range(6)]
+            assert reasons == ['ConnectError'] * 6
+            assert all(client.is_closed for client in clients)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_head_range_fallback_closes_client(self, monkeypatch):
+        import httpx
+        calls = []
+
+        def handle(request):
+            calls.append(request)
+            if request.method == 'HEAD':
+                return httpx.Response(405)
+            return httpx.Response(206, headers={
+                'Content-Type': 'video/mp4', 'Content-Range': 'bytes 0-0/8192'}, content=b'x')
+
+        client = httpx.Client(transport=httpx.MockTransport(handle))
+        monkeypatch.setattr(download_url, 'get_probe_client', lambda: client)
+        assert download_url._probe_url('https://example.invalid/video', 1024) == (8192, '')
+        assert [r.method for r in calls] == ['HEAD', 'GET']
+        assert calls[1].headers['Range'] == 'bytes=0-0'
+        assert client.is_closed
